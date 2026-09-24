@@ -30,17 +30,7 @@
 
 </div>
 
----
 
-### 🚀 Featured Projects
-
-| Project | Description | Stack |
-|---|---|---|
-| 🅿️ **Park-IT by SF** | Motorcycle parking app for USTP-CDO | Mobile app |
-| ⚡ **[Electricity Billing System](https://github.com/redeemer-xu/ELECTRICITY-BILLING-SYSTEM2)** | Billing system rebuilt as a Laravel API + Flutter app | Laravel, Flutter, MySQL |
-| 💜 **SoulSync** | Dark-themed dating app | React Native, Expo |
-
----
 
 ### 📊 GitHub Stats
 
