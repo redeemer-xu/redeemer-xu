@@ -7,7 +7,6 @@
 <p>
   <a href="mailto:apareceredeemer3@gmail.com"><img src="https://img.shields.io/badge/Email-0d1117?style=flat-square&logo=gmail&logoColor=58a6ff" /></a>
   <a href="https://facebook.com/Aparece.redeemer"><img src="https://img.shields.io/badge/Facebook-0d1117?style=flat-square&logo=facebook&logoColor=58a6ff" /></a>
-  <img src="https://komarev.com/ghpvc/?username=redeemer-xu&color=0d1117&style=flat-square&label=Profile+Views" />
 </p>
 
 </div>
@@ -16,7 +15,7 @@
 
 ## About
 
-I'm a third-year **BS Information Technology** student at the **University of Science and Technology of Southern Philippines (USTP-CDO)**. I build full-stack web systems and cross-platform mobile apps, from database design and REST APIs to the user interface.
+I'm a third-year **BS Information Technology** student at the **University of Science and Technology of Southern Philippines (USTP-CDO)**. I enjoy learning how full systems come together, from database design and APIs to web and mobile interfaces, and I build projects along the way to sharpen my skills.
 
 - **Currently:** building Laravel APIs paired with Flutter clients
 - **Learning:** React Native with Expo
@@ -53,28 +52,4 @@ I'm a third-year **BS Information Technology** student at the **University of Sc
 
 <img src="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/main/profile-summary-card-output/github_dark/0-profile-details.svg" width="100%" />
 
-<img src="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/main/profile-summary-card-output/github_dark/3-stats.svg" height="175" />
-<img src="https://streak-stats.demolab.com?user=redeemer-xu&theme=github-dark-blue&hide_border=true&background=0D1117" height="175" />
-
-<img src="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/main/profile-summary-card-output/github_dark/1-repos-per-language.svg" height="175" />
-<img src="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/main/profile-summary-card-output/github_dark/2-most-commit-language.svg" height="175" />
-
-</div>
-
-<br/>
-
-## Contribution Activity
-
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/output/github-snake-dark.svg" />
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/output/github-snake.svg" />
-    <img alt="Contribution activity" src="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/output/github-snake.svg" />
-  </picture>
-</div>
-
-<br/>
-
-<div align="center">
-  <sub>Open to collaborations, internships, and freelance projects.</sub>
-</div>
+<img src="https://raw.githubusercontent.com/redee
