@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/main/assets/header.svg" width="100%" alt="Redeemer Aparece" />
 
-<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=18&pause=1200&color=8B949E&center=true&vCenter=true&width=620&lines=Building+web+systems+with+Laravel+and+MySQL;Developing+mobile+apps+with+Flutter+and+React+Native;BS+Information+Technology+%40+USTP-CDO" alt="Typing SVG" /></a>
+<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=18&pause=1200&color=8B949E&center=true&vCenter=true&width=620&lines=Building+and+learning;Developing+my+skills+;BS+Information+Technology+%40+USTP-CDO" alt="Typing SVG" /></a>
 
 <p>
   <a href="mailto:apareceredeemer3@gmail.com"><img src="https://img.shields.io/badge/Email-0d1117?style=flat-square&logo=gmail&logoColor=58a6ff" /></a>
