@@ -41,7 +41,7 @@
       <rect class="cursor" x="172" y="62" width="10" height="20" fill="#3fb950"/>
     </g>
     <text class="name f2" x="80" y="140">Redeemer Aparece</text>
-    <text class="role f3" x="80" y="178">BS Information Technology Student  ·  Web and Mobile Developer</text>
+    <text class="role f3" x="80" y="178">BS Information Technology Student </text>
     <rect class="bar" x="80" y="198" width="160" height="4" rx="2" fill="url(#accent)"/>
   </g>
 </svg>
