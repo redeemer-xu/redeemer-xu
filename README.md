@@ -10,17 +10,15 @@
 
 </div>
 
----
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/output/github-snake-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/output/github-snake.svg" />
+    <img alt="Snake eating my contributions" src="https://raw.githubusercontent.com/redeemer-xu/redeemer-xu/output/github-snake.svg" />
+  </picture>
+</div>
 
-### 🧑‍💻 About Me
 
-- 🎓 3rd-year **BS Information Technology** student at **USTP-CDO**
-- 🌐 Into **web and mobile development**: Laravel APIs, Flutter apps, React Native
-- 🗄️ Working with databases, networking, and system integration
-- 🌱 Currently leveling up in **React Native + Expo**
-- 📫 Reach me at **apareceredeemer3@gmail.com**
-
----
 
 ### 🛠️ Tech Stack
 
