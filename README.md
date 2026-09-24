@@ -12,40 +12,6 @@
 
 </div>
 
-<br/>
-
-## About
-
-I'm a third-year **BS Information Technology** student at the **University of Science and Technology of Southern Philippines (USTP-CDO)**. I enjoy learning how full systems come together, from database design and APIs to web and mobile interfaces, and I build projects along the way to sharpen my skills.
-
-- **Currently:** building Laravel APIs paired with Flutter clients
-- **Learning:** React Native with Expo
-- **Interests:** system integration, databases, and networking
-
-<br/>
-
-## Tech Stack
-
-<table>
-  <tr>
-    <td width="170"><b>Languages</b></td>
-    <td><img src="https://skillicons.dev/icons?i=php,js,java,py,dart,c,html,css" /></td>
-  </tr>
-  <tr>
-    <td><b>Frameworks</b></td>
-    <td><img src="https://skillicons.dev/icons?i=laravel,flutter,react" /></td>
-  </tr>
-  <tr>
-    <td><b>Database</b></td>
-    <td><img src="https://skillicons.dev/icons?i=mysql" /></td>
-  </tr>
-  <tr>
-    <td><b>Tools</b></td>
-    <td><img src="https://skillicons.dev/icons?i=git,github,vscode,androidstudio" /></td>
-  </tr>
-</table>
-
-<br/>
 
 ## GitHub Overview
 
