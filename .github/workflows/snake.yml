@@ -17,12 +17,110 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Generate snake SVGs
-        uses: Platane/snk@v3
+        uses: Platane/snk/svg-only@v3
         with:
           github_user_name: ${{ github.repository_owner }}
           outputs: |
             dist/github-snake.svg
             dist/github-snake-dark.svg?palette=github-dark
+
+      - name: Give the snake a face and a frame
+        run: |
+          sudo chown -R "$(id -u)" dist || true
+          python3 - <<'EOF'
+          import re, sys
+
+          THEMES = {
+              "dark":  {"panel": "#0d1117", "frame": "#30363d", "guide": "#21262d", "mouth": "#0d1117",
+                        "pupil": "#0d1117", "tongue": "#ff7b72", "track": "#21262d"},
+              "light": {"panel": "#ffffff", "frame": "#d0d7de", "guide": "#eaeef2", "mouth": "#ffffff",
+                        "pupil": "#1f2328", "tongue": "#cf222e", "track": "#eaeef2"},
+          }
+          BODY = ["#58a6ff", "#4fb0c6", "#47b58c", "#3fb950"]  # head -> tail: blue to green
+
+
+          def rot(a):
+              return f"translate(8px,8px) rotate({a}deg) translate(-8px,-8px)"
+
+
+          def style(path, theme):
+              t = THEMES[theme]
+              s = open(path, encoding="utf-8").read()
+              css = re.search(r"<style>(.*?)</style>", s, re.S).group(1)
+
+              # 1) Work out which way the head faces at every moment
+              kf = re.search(r"@keyframes s0\{(.*?)\}\}", css).group(1) + "}"
+              pts = []
+              for sel, x, y in re.findall(r"([\d.,%]+)\{transform:translate\((-?[\d.]+)px,(-?[\d.]+)px\)\}", kf):
+                  for p in sel.split(","):
+                      pts.append((float(p.rstrip("%")), float(x), float(y)))
+              pts.sort()
+              frames, angle = [], 0
+              for (p1, x1, y1), (p2, x2, y2) in zip(pts, pts[1:]):
+                  dx, dy = x2 - x1, y2 - y1
+                  if dx or dy:
+                      if abs(dx) >= abs(dy):
+                          angle = 0 if dx > 0 else 180
+                      else:
+                          angle = 90 if dy > 0 else -90
+                  frames.append(f"{p1:.3f}%{{transform:{rot(angle)}}}")
+                  if p2 - p1 > 0.002:
+                      frames.append(f"{p2 - 0.001:.3f}%{{transform:{rot(angle)}}}")
+              frames.append(f"100%{{transform:{rot(angle)}}}")
+              dur = re.search(r"\.s\{[^}]*?(\d+)ms", css).group(1)
+
+              extra_css = (
+                  "@keyframes hd{" + "".join(frames) + "}"
+                  f".hd{{animation:hd {dur}ms linear infinite}}"
+                  "@keyframes mo{0%,100%{transform:translate(16px,8px) scale(1,1) translate(-16px,-8px)}"
+                  "50%{transform:translate(16px,8px) scale(1,.1) translate(-16px,-8px)}}"
+                  ".mo{animation:mo 400ms ease-in-out infinite}"
+                  "@keyframes tg{0%,55%,100%{transform:translate(14px,8px) scale(0,1) translate(-14px,-8px)}"
+                  "70%,85%{transform:translate(14px,8px) scale(1,1) translate(-14px,-8px)}}"
+                  ".tg{animation:tg 1200ms ease-in-out infinite}"
+                  + "".join(f".s.s{i}{{fill:{c}}}" for i, c in enumerate(BODY))
+                  + "".join(f".u.u{i}{{fill:{BODY[0]}}}" for i in range(12))
+              )
+              s = s.replace("</style>", extra_css + "</style>", 1)
+
+              # 2) Frame around the grid + the lane the snake travels in
+              panel = (
+                  f'<rect x="-10" y="-22" width="868" height="156" rx="10" fill="{t["panel"]}" stroke="{t["frame"]}"/>'
+                  f'<rect x="0" y="0" width="848" height="112" rx="4" fill="none" stroke="{t["guide"]}" stroke-dasharray="4 4"/>'
+                  f'<rect x="0" y="146" width="848" height="3" rx="1.5" fill="{t["track"]}"/>'
+              )
+              s = s.replace("</style>", "</style>" + panel, 1)
+
+              # 3) Slim progress bar under the frame
+              s = re.sub(r'(<rect class="u u\d+" )height="12"( width="[\d.]+" x="[\d.]+" )y="144"',
+                         r'\1height="3"\2y="146"', s)
+
+              # 4) Swap the plain head square for a head with eyes, mouth and tongue
+              head = (
+                  '<g class="s s0"><g class="hd">'
+                  f'<path class="tg" d="M14 8H20M20 8L22.5 6.3M20 8L22.5 9.7" stroke="{t["tongue"]}" stroke-width="1.1" stroke-linecap="round" fill="none"/>'
+                  f'<rect x="0.5" y="0.5" width="15" height="15" rx="5" fill="{BODY[0]}"/>'
+                  f'<path class="mo" d="M16.2 8L10.8 5.3V10.7Z" fill="{t["mouth"]}"/>'
+                  f'<circle cx="7" cy="4.2" r="2.4" fill="#ffffff"/><circle cx="7.9" cy="4.2" r="1.2" fill="{t["pupil"]}"/>'
+                  f'<circle cx="7" cy="11.8" r="2.4" fill="#ffffff"/><circle cx="7.9" cy="11.8" r="1.2" fill="{t["pupil"]}"/>'
+                  '</g></g>'
+              )
+              s = re.sub(r'<rect class="s s0"[^>]*/>', head, s, 1)
+              for i, size in ((1, 14), (2, 12.6), (3, 11.2)):
+                  o = (16 - size) / 2
+                  s = re.sub(rf'<rect class="s s{i}"[^>]*/>',
+                             f'<rect class="s s{i}" x="{o}" y="{o}" width="{size}" height="{size}" rx="4" ry="4"/>', s, 1)
+
+              # 5) Fit the canvas to the new frame
+              s = re.sub(r'<svg viewBox="[^"]*" width="\d+" height="\d+"',
+                         '<svg viewBox="-12 -26 872 180" width="872" height="180"', s, 1)
+              open(path, "w", encoding="utf-8").write(s)
+
+
+          style("dist/github-snake.svg", "light")
+          style("dist/github-snake-dark.svg", "dark")
+          print("Snake styled")
+          EOF
 
       - name: Push SVGs to output branch
         uses: crazy-max/ghaction-github-pages@v4
