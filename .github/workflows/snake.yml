@@ -24,7 +24,7 @@ jobs:
             dist/github-snake.svg
             dist/github-snake-dark.svg?palette=github-dark
 
-      - name: Give the snake a face, a frame, and a growing body
+      - name: Turn it into a real Snake game
         run: |
           sudo chown -R "$(id -u)" dist || true
           python3 - <<'EOF'
@@ -32,12 +32,14 @@ jobs:
 
           THEMES = {
               "dark":  {"panel": "#0d1117", "frame": "#30363d", "guide": "#21262d", "mouth": "#0d1117",
-                        "pupil": "#0d1117", "tongue": "#ff7b72", "track": "#21262d"},
+                        "pupil": "#0d1117", "tongue": "#ff7b72", "track": "#21262d", "dead": "#f85149"},
               "light": {"panel": "#ffffff", "frame": "#d0d7de", "guide": "#eaeef2", "mouth": "#ffffff",
-                        "pupil": "#1f2328", "tongue": "#cf222e", "track": "#eaeef2"},
+                        "pupil": "#1f2328", "tongue": "#cf222e", "track": "#eaeef2", "dead": "#cf222e"},
           }
           BODY = ["#58a6ff", "#3fb950"]  # head -> tail: blue to green
           MAX_LENGTH = 40               # longest the snake can grow (in boxes)
+          DEATH_MS = 1200               # how long the game-over blink lasts
+          BABY_MS = 2500                # a new snake stays small this long before it can grow
 
 
           def mix(a, b, f):
@@ -49,46 +51,169 @@ jobs:
               return f"translate(8px,8px) rotate({a}deg) translate(-8px,-8px)"
 
 
+          def kfs(items):
+              """[(percent, css)] -> keyframes body, sorted, one entry per percent."""
+              out = {}
+              for p, v in items:
+                  out[round(min(100, max(0, p)), 3)] = v
+              return "".join(f"{p}%{{{v}}}" for p, v in sorted(out.items()))
+
+
           def style(path, theme):
               t = THEMES[theme]
               s = open(path, encoding="utf-8").read()
               css = re.search(r"<style>(.*?)</style>", s, re.S).group(1)
+              dur = int(re.search(r"\.s\{[^}]*?(\d+)ms", css).group(1))
+              D = DEATH_MS / dur * 100
 
-              # 1) Work out which way the head faces at every moment
+              # --- The path the head follows (from the snake generator) ---
               kf = re.search(r"@keyframes s0\{(.*?)\}\}", css).group(1) + "}"
               pts = []
               for sel, x, y in re.findall(r"([\d.,%]+)\{transform:translate\((-?[\d.]+)px,(-?[\d.]+)px\)\}", kf):
                   for p in sel.split(","):
                       pts.append((float(p.rstrip("%")), float(x), float(y)))
               pts.sort()
-              frames, angle = [], 0
+              moves = [(p2 - p1, abs(x2 - x1) + abs(y2 - y1)) for (p1, x1, y1), (p2, x2, y2) in zip(pts, pts[1:])]
+              step = sum(dt for dt, d in moves if d) / sum(d for dt, d in moves if d) * 16  # time to move one box
+
+              def head_at(p):
+                  if p <= pts[0][0]:
+                      return (pts[0][1] + (pts[0][0] - p) / step * 16, pts[0][2])
+                  for (p1, x1, y1), (p2, x2, y2) in zip(pts, pts[1:]):
+                      if p1 <= p <= p2:
+                          f = 0 if p2 == p1 else (p - p1) / (p2 - p1)
+                          return (x1 + (x2 - x1) * f, y1 + (y2 - y1) * f)
+                  return pts[-1][1:]
+
+              turns, angle = [(-1e9, 180)], 180  # (time, direction the head faces)
               for (p1, x1, y1), (p2, x2, y2) in zip(pts, pts[1:]):
                   dx, dy = x2 - x1, y2 - y1
                   if dx or dy:
-                      if abs(dx) >= abs(dy):
-                          angle = 0 if dx > 0 else 180
-                      else:
-                          angle = 90 if dy > 0 else -90
-                  frames.append(f"{p1:.3f}%{{transform:{rot(angle)}}}")
-                  if p2 - p1 > 0.002:
-                      frames.append(f"{p2 - 0.001:.3f}%{{transform:{rot(angle)}}}")
-              frames.append(f"100%{{transform:{rot(angle)}}}")
-              dur = re.search(r"\.s\{[^}]*?(\d+)ms", css).group(1)
+                      a = (0 if dx > 0 else 180) if abs(dx) >= abs(dy) else (90 if dy > 0 else -90)
+                      if a != angle:
+                          turns.append((p1, a))
+                          angle = a
 
-              extra_css = (
-                  "@keyframes hd{" + "".join(frames) + "}"
-                  f".hd{{animation:hd {dur}ms linear infinite}}"
+              def angle_at(p):
+                  return [a for q, a in turns if q <= p][-1]
+
+              # --- Play the game: grow on every bite, game over on hitting its own body ---
+              eats = sorted(float(m) for m in re.findall(
+                  r"@keyframes c[0-9a-z]+\{[^}]*?\}([\d.]+)%(?:,[\d.]+%)*\{fill:var\(--ce\)\}", css))
+              N = int(100 / step)
+              P = {n: tuple(round(v / 16) for v in head_at(n * step)) for n in range(-MAX_LENGTH, N + 1)}
+              eat_steps = [round(e / step) for e in eats]
+              baby = round(BABY_MS / dur * 100 / step)
+
+              lives, start, first = [], 0, True
+              while True:
+                  end = None
+                  for n in range(start + 1, N + 1):
+                      grow_from = start if first else start + baby
+                      L = min(MAX_LENGTH, 4 + sum(1 for e in eat_steps if grow_from <= e < n))
+                      reach = L - 1 if first else min(L - 1, n - start)
+                      if P[n] != P[n - 1] and any(P[n] == P[n - j] for j in range(1, reach + 1)):
+                          end = n
+                          break
+                  lives.append((start, end, first))
+                  if end is None:
+                      break
+                  start, first = end, False
+
+              # --- Draw every snake ---
+              anim_css, svg, deaths = [], [], []
+              for start, end, first in lives:
+                  a0 = start * step
+                  e = 100.0 if end is None else end * step
+                  dies = end is not None
+                  if dies:
+                      deaths.append(e)
+                  life_eats = [x for x in eats if (a0 if first else (start + baby) * step) <= x < e]
+                  total = min(MAX_LENGTH, 4 + len(life_eats))
+                  idx = len(anim_css)
+
+                  def visible(show, color):
+                      items = [(0, "opacity:0"), (show - 0.001, "opacity:0"), (show, f"opacity:1;fill:{color}")]
+                      if dies:
+                          items += [(e - 0.001, f"opacity:1;fill:{color}"), (e, f"opacity:1;fill:{t['dead']}"),
+                                    (e + D * .25, "opacity:.2"), (e + D * .5, "opacity:1"), (e + D * .75, "opacity:.2"),
+                                    (e + D, "opacity:0"), (100, "opacity:0")]
+                      else:
+                          items.append((100, "opacity:1"))
+                      if show <= 0:
+                          items = items[2:]
+                      return kfs(items)
+
+                  def route(lag, show):
+                      items = [(0, head_at(show - lag)), (show, head_at(show - lag))]
+                      items += [(p + lag, (x, y)) for p, x, y in pts if show < p + lag < e]
+                      items += [(e, head_at(e - lag)), (100, head_at(e - lag))]
+                      return kfs((p, f"transform:translate({x:.1f}px,{y:.1f}px)") for p, (x, y) in items)
+
+                  body = []
+                  for k in range(total - 1, 0, -1):
+                      show = (0 if first else a0 + k * step) if k < 4 else life_eats[k - 4]
+                      if show >= e:
+                          continue
+                      f = k / max(1, total - 1)
+                      color = mix(BODY[0], BODY[-1], f)
+                      size = round(14 - 3.5 * f, 2)
+                      o = round((16 - size) / 2, 2)
+                      name = f"g{idx}k{k}"
+                      anim_css.append(f"@keyframes {name}m{{{route(k * step, show)}}}@keyframes {name}v{{{visible(show, color)}}}"
+                                      f".{name}{{opacity:0;animation:{name}m {dur}ms linear infinite,{name}v {dur}ms linear infinite}}")
+                      body.append(f'<rect class="{name}" x="{o}" y="{o}" width="{size}" height="{size}" rx="4" ry="4"/>')
+
+                  # head with eyes, chomping mouth, flicking tongue (and X eyes when it dies)
+                  h = f"g{idx}h"
+                  turn_items = [(0, angle_at(a0)), (a0, angle_at(a0))]
+                  for q, a in turns:
+                      if a0 < q < e:
+                          turn_items += [(q - 0.001, angle_at(q - 0.002)), (q, a)]
+                  turn_items += [(e, angle_at(e)), (100, angle_at(e))]
+                  x_eyes = kfs([(0, "opacity:0"), (e - 0.001, "opacity:0"), (e, "opacity:1"), (100, "opacity:1")]) if dies \
+                      else "0%{opacity:0}100%{opacity:0}"
+                  anim_css.append(
+                      f"@keyframes {h}m{{{route(0, a0)}}}@keyframes {h}v{{{visible(a0, BODY[0])}}}"
+                      f"@keyframes {h}r{{{kfs((p, 'transform:' + rot(a)) for p, a in turn_items)}}}"
+                      f"@keyframes {h}x{{{x_eyes}}}"
+                      f".{h}{{opacity:0;animation:{h}m {dur}ms linear infinite,{h}v {dur}ms linear infinite}}"
+                      f".{h}r{{animation:{h}r {dur}ms linear infinite}}.{h}x{{opacity:0;animation:{h}x {dur}ms linear infinite}}")
+                  xs = "".join(f'<path d="M{cx - 1.8} {cy - 1.8}l3.6 3.6m0 -3.6l-3.6 3.6" stroke="{t["dead"]}" stroke-width="1.4" stroke-linecap="round"/>'
+                               for cx, cy in ((7, 4.2), (7, 11.8)))
+                  svg.append("".join(body) + (
+                      f'<g class="{h}"><g class="{h}r">'
+                      f'<path class="tg" d="M14 8H20M20 8L22.5 6.3M20 8L22.5 9.7" stroke="{t["tongue"]}" stroke-width="1.1" stroke-linecap="round" fill="none"/>'
+                      f'<rect x="0.5" y="0.5" width="15" height="15" rx="5"/>'
+                      f'<path class="mo" d="M16.2 8L10.8 5.3V10.7Z" fill="{t["mouth"]}"/>'
+                      f'<circle cx="7" cy="4.2" r="2.4" fill="#ffffff"/><circle cx="7.9" cy="4.2" r="1.2" fill="{t["pupil"]}"/>'
+                      f'<circle cx="7" cy="11.8" r="2.4" fill="#ffffff"/><circle cx="7.9" cy="11.8" r="1.2" fill="{t["pupil"]}"/>'
+                      f'<g class="{h}x">{xs}</g></g></g>'))
+
+              # "GAME OVER" banner each time a snake dies
+              banner = [(0, "opacity:0")]
+              for i, e in enumerate(deaths):
+                  stop = min(e + D, deaths[i + 1] - 0.01) if i + 1 < len(deaths) else e + D
+                  banner += [(e - 0.001, "opacity:0"), (e, "opacity:1"), (stop - (stop - e) * .15, "opacity:1"), (stop, "opacity:0")]
+              banner.append((100, "opacity:0"))
+              anim_css.append(
+                  f"@keyframes go{{{kfs(banner)}}}.go{{opacity:0;animation:go {dur}ms linear infinite}}"
                   "@keyframes mo{0%,100%{transform:translate(16px,8px) scale(1,1) translate(-16px,-8px)}"
                   "50%{transform:translate(16px,8px) scale(1,.1) translate(-16px,-8px)}}"
                   ".mo{animation:mo 400ms ease-in-out infinite}"
                   "@keyframes tg{0%,55%,100%{transform:translate(14px,8px) scale(0,1) translate(-14px,-8px)}"
                   "70%,85%{transform:translate(14px,8px) scale(1,1) translate(-14px,-8px)}}"
                   ".tg{animation:tg 1200ms ease-in-out infinite}"
-                  + "".join(f".u.u{i}{{fill:{BODY[0]}}}" for i in range(12))
-              )
-              s = s.replace("</style>", extra_css + "</style>", 1)
+                  + "".join(f".u.u{i}{{fill:{BODY[0]}}}" for i in range(12)))
+              svg.reverse()  # earlier (dead) snakes on top, so you can see their X eyes
+              svg.append(
+                  f'<g class="go"><rect x="339" y="36" width="170" height="40" rx="8" fill="{t["panel"]}" stroke="{t["dead"]}" stroke-width="1.5"/>'
+                  f'<text x="424" y="62" text-anchor="middle" fill="{t["dead"]}" '
+                  'style="font:700 18px Consolas,\'SF Mono\',\'Courier New\',monospace;letter-spacing:2px">GAME OVER</text></g>')
 
-              # 2) Frame around the grid + the lane the snake travels in
+              s = s.replace("</style>", "".join(anim_css) + "</style>", 1)
+
+              # Frame around the grid + the lane the snake travels in
               panel = (
                   f'<rect x="-10" y="-22" width="868" height="156" rx="10" fill="{t["panel"]}" stroke="{t["frame"]}"/>'
                   f'<rect x="0" y="0" width="848" height="112" rx="4" fill="none" stroke="{t["guide"]}" stroke-dasharray="4 4"/>'
@@ -96,75 +221,24 @@ jobs:
               )
               s = s.replace("</style>", "</style>" + panel, 1)
 
-              # 3) Slim progress bar under the frame
+              # Slim progress bar under the frame
               s = re.sub(r'(<rect class="u u\d+" )height="12"( width="[\d.]+" x="[\d.]+" )y="144"',
                          r'\1height="3"\2y="146"', s)
 
-              # 4) Swap the plain head square for a head with eyes, mouth and tongue
-              head = (
-                  '<g class="s s0"><g class="hd">'
-                  f'<path class="tg" d="M14 8H20M20 8L22.5 6.3M20 8L22.5 9.7" stroke="{t["tongue"]}" stroke-width="1.1" stroke-linecap="round" fill="none"/>'
-                  f'<rect x="0.5" y="0.5" width="15" height="15" rx="5" fill="{BODY[0]}"/>'
-                  f'<path class="mo" d="M16.2 8L10.8 5.3V10.7Z" fill="{t["mouth"]}"/>'
-                  f'<circle cx="7" cy="4.2" r="2.4" fill="#ffffff"/><circle cx="7.9" cy="4.2" r="1.2" fill="{t["pupil"]}"/>'
-                  f'<circle cx="7" cy="11.8" r="2.4" fill="#ffffff"/><circle cx="7.9" cy="11.8" r="1.2" fill="{t["pupil"]}"/>'
-                  '</g></g>'
-              )
-              s = re.sub(r'<rect class="s s0"[^>]*/>', head, s, 1)
-              # 5) Make the snake grow by one piece every time it eats a green box
-              eats = sorted(float(m) for m in re.findall(
-                  r"@keyframes c[0-9a-z]+\{[^}]*?\}([\d.]+)%(?:,[\d.]+%)*\{fill:var\(--ce\)\}", css))
-              eats = eats[:max(0, MAX_LENGTH - 4)]
-              moves_ = [(p2 - p1, abs(x2 - x1) + abs(y2 - y1)) for (p1, x1, y1), (p2, x2, y2) in zip(pts, pts[1:])]
-              step = sum(dt for dt, d in moves_ if d) / sum(d for dt, d in moves_ if d) * 16  # time to move one box
+              # Replace the original snake with our snakes
+              first_seg = re.search(r'<rect class="s s\d"', s).start()
+              s = re.sub(r'<rect class="s s\d"[^>]*/>', "", s)
+              s = s[:first_seg] + "".join(svg) + s[first_seg:]
 
-              def head_at(p):
-                  if p <= 0:
-                      return (-p / step * 16, -16.0)
-                  for (p1, x1, y1), (p2, x2, y2) in zip(pts, pts[1:]):
-                      if p1 <= p <= p2:
-                          f = 0 if p2 == p1 else (p - p1) / (p2 - p1)
-                          return (x1 + (x2 - x1) * f, y1 + (y2 - y1) * f)
-                  return pts[-1][1:]
-
-              total = 4 + len(eats)
-              body_css, body_svg = [], []
-              for k in range(1, total):
-                  f = k / max(1, total - 1)
-                  color = mix(BODY[0], BODY[-1], f)
-                  size = round(14 - 3.5 * f, 2)
-                  o = round((16 - size) / 2, 2)
-                  if k <= 3:
-                      body_css.append(f".s.s{k}{{fill:{color}}}")
-                      s = re.sub(rf'<rect class="s s{k}"[^>]*/>',
-                                 f'<rect class="s s{k}" x="{o}" y="{o}" width="{size}" height="{size}" rx="4" ry="4"/>', s, 1)
-                      continue
-                  lag = k * step
-                  kfs = [(0.0, 16.0 * k, -16.0)] + [(p + lag, x, y) for p, x, y in pts if p + lag < 100]
-                  kfs.append((100.0, *head_at(100 - lag)))
-                  moves = "".join(f"{p:.2f}%{{transform:translate({x:.1f}px,{y:.1f}px)}}" for p, x, y in kfs)
-                  show = eats[k - 4]
-                  body_css.append(
-                      f"@keyframes b{k}{{{moves}}}"
-                      f"@keyframes v{k}{{0%,{max(0, show - 0.01):.2f}%{{opacity:0}}{show:.2f}%,100%{{opacity:1}}}}"
-                      f".b{k}{{fill:{color};opacity:0;animation:b{k} {dur}ms linear infinite,v{k} {dur}ms linear infinite}}")
-                  body_svg.append(f'<rect class="b{k}" x="{o}" y="{o}" width="{size}" height="{size}" rx="4" ry="4"/>')
-              s = s.replace("</style>", "".join(body_css) + "</style>", 1)
-              first = s.index('<rect class="s s1"')
-              s = s[:first] + "".join(reversed(body_svg)) + s[first:]
-              s = s.replace(head, "", 1)  # draw the head last so it stays on top
-              last = re.search(r'<rect class="s s3"[^>]*/>', s).end()
-              s = s[:last] + head + s[last:]
-
-              # 6) Fit the canvas to the new frame
+              # Fit the canvas to the new frame
               s = re.sub(r'<svg viewBox="[^"]*" width="\d+" height="\d+"',
                          '<svg viewBox="-12 -26 872 180" width="872" height="180"', s, 1)
               open(path, "w", encoding="utf-8").write(s)
+              print(f"{path}: {len(lives)} snake(s), {len(deaths)} game over(s)")
 
 
           style("dist/github-snake.svg", "light")
           style("dist/github-snake-dark.svg", "dark")
-          print("Snake styled")
           EOF
 
       - name: Push SVGs to output branch
