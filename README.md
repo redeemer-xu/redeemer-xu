@@ -34,5 +34,5 @@
 <br/>
 
 <div align="center">
-  <sub>Always learning, one commit at a time.</sub>
+  <sub>One commit at a time.</sub>
 </div>
