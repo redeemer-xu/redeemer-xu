@@ -34,5 +34,5 @@
 <br/>
 
 <div align="center">
-  <sub>One commit at a time.</sub>
+  <sub>One step ahead.</sub>
 </div>
